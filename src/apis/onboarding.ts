@@ -7,13 +7,11 @@ export async function validateCorporationNumber(
   return new Promise((resolve) => {
     setTimeout(() => {
       if (Math.random() > 0.5) {
-        console.log("VALID");
         return resolve({
           corporationNumber,
           valid: true,
         });
       }
-      console.log("INVALID");
       return resolve({
         corporationNumber,
         valid: false,

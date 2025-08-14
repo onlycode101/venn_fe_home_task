@@ -6,7 +6,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 import * as yup from "yup";
-import { BaseSyntheticEvent, useMemo } from "react";
+import { BaseSyntheticEvent, useMemo, useRef } from "react";
 import { validateCorporationNumber } from "@/apis/onboarding";
 import useApi from "@/hooks/useApi";
 import debounce from "lodash.debounce";
@@ -46,26 +46,33 @@ export default function OnboardingForm() {
     formState: { errors },
   } = formHook;
 
+  const corpNumRequestIdRef = useRef(0);
+
   const corpNumValidateApi = useApi(validateCorporationNumber);
 
   const debouncedValidateCorpNum = useMemo(
     () =>
       debounce(async (value: string) => {
+        const currentId = ++corpNumRequestIdRef.current;
         try {
           const res = await corpNumValidateApi.execute(value);
-          if (!res.valid) {
+          if (currentId === corpNumRequestIdRef.current) {
+            if (!res.valid) {
+              formHook.setError("corporationNumber", {
+                type: "manual",
+                message: "Corporation number is invalid",
+              });
+            } else {
+              formHook.clearErrors("corporationNumber");
+            }
+          }
+        } catch (err) {
+          if (currentId === corpNumRequestIdRef.current) {
             formHook.setError("corporationNumber", {
               type: "manual",
               message: "Corporation number is invalid",
             });
-          } else {
-            formHook.clearErrors("corporationNumber");
           }
-        } catch (err) {
-          formHook.setError("corporationNumber", {
-            type: "manual",
-            message: "Corporation number is invalid",
-          });
         }
       }, 300),
     [corpNumValidateApi.execute, formHook.setError, formHook.clearErrors],
@@ -128,9 +135,7 @@ export default function OnboardingForm() {
           }}
           error={!!errors.corporationNumber}
           helperText={
-            corpNumValidateApi.status === "pending"
-              ? "Checking..."
-              : errors.corporationNumber?.message
+            corpNumValidateApi.isPending ? "Checking ..." : errors.corporationNumber?.message
           }
         />
         <Button
