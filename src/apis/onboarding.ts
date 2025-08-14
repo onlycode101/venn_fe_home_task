@@ -5,16 +5,20 @@ export async function validateCorporationNumber(
 ): Promise<CorporationNumberValidation> {
   // TODO: fetch
   return new Promise((resolve) => {
-    if (Math.random() > 0.5) {
+    setTimeout(() => {
+      if (Math.random() > 0.5) {
+        console.log("VALID");
+        return resolve({
+          corporationNumber,
+          valid: true,
+        });
+      }
+      console.log("INVALID");
       return resolve({
         corporationNumber,
-        valid: true,
+        valid: false,
+        message: "Invalid corporation number",
       });
-    }
-    return resolve({
-      corporationNumber,
-      valid: false,
-      message: "Invalid corporation number",
-    });
+    }, 1500);
   });
 }

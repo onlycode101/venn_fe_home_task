@@ -6,8 +6,10 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 import * as yup from "yup";
-import { BaseSyntheticEvent } from "react";
+import { BaseSyntheticEvent, useMemo } from "react";
 import { validateCorporationNumber } from "@/apis/onboarding";
+import useApi from "@/hooks/useApi";
+import debounce from "lodash.debounce";
 
 interface FormValues {
   firstName: string;
@@ -16,39 +18,65 @@ interface FormValues {
   corporationNumber: string;
 }
 
-const schema = yup.object({
-  firstName: yup.string().required("First name is required"),
-  lastName: yup.string().required("Last name is required"),
-  phoneNumber: yup.string().required("Phone number is required"),
-  corporationNumber: yup
-    .string()
-    .required("Corporation number is required")
-    .test("is-valid-corporation-number", "Corporation number is invalid", async (value) => {
-      // todo: change to use validate in form so to handle the pending state
-      console.log("checking ", value);
-      const result = await validateCorporationNumber(value);
-      if (result.valid) {
-        return true;
-      } else {
-        return false;
-      }
-    }),
-});
+const getSchema = () =>
+  yup.object({
+    firstName: yup
+      .string()
+      .required("First name is required")
+      .max(50, "First name cannot exceed 50 characters"),
+    lastName: yup
+      .string()
+      .required("Last name is required")
+      .max(50, "Last name cannot exceed 50 characters"),
+    phoneNumber: yup
+      .string()
+      .required("Phone number is required")
+      .matches(/^\+1\d{10}$/, "Phone number must start with +1 followed by 10 digits"),
+    corporationNumber: yup.string().trim().required("Corporation number is required"),
+  });
 
 export default function OnboardingForm() {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormValues>({
+  const schema = useMemo(() => getSchema(), []);
+  const formHook = useForm<FormValues>({
     resolver: yupResolver(schema),
+    mode: "onBlur",
   });
+
+  const {
+    formState: { errors },
+  } = formHook;
+
+  const corpNumValidateApi = useApi(validateCorporationNumber);
+
+  const debouncedValidateCorpNum = useMemo(
+    () =>
+      debounce(async (value: string) => {
+        try {
+          const res = await corpNumValidateApi.execute(value);
+          if (!res.valid) {
+            formHook.setError("corporationNumber", {
+              type: "manual",
+              message: "Corporation number is invalid",
+            });
+          } else {
+            formHook.clearErrors("corporationNumber");
+          }
+        } catch (err) {
+          formHook.setError("corporationNumber", {
+            type: "manual",
+            message: "Corporation number is invalid",
+          });
+        }
+      }, 300),
+    [corpNumValidateApi.execute, formHook.setError, formHook.clearErrors],
+  );
 
   const onSubmit = (data: FormValues, event?: BaseSyntheticEvent) => {
     event?.preventDefault();
     event?.stopPropagation();
     console.log("Form submitted:", data, event);
   };
+  const corporationNumberField = formHook.register("corporationNumber");
 
   return (
     <Container sx={{ mt: 4 }}>
@@ -56,14 +84,14 @@ export default function OnboardingForm() {
         Onboarding Form
       </Typography>
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <form onSubmit={formHook.handleSubmit(onSubmit)} noValidate>
         <Box
           sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", gap: 4 }}
         >
           <TextField
             label="Frist Name"
             margin="normal"
-            {...register("firstName")}
+            {...formHook.register("firstName")}
             error={!!errors.firstName}
             helperText={errors.firstName?.message}
             sx={{ flexGrow: 1 }}
@@ -71,7 +99,7 @@ export default function OnboardingForm() {
           <TextField
             label="Last Name"
             margin="normal"
-            {...register("lastName")}
+            {...formHook.register("lastName")}
             error={!!errors.lastName}
             helperText={errors.lastName?.message}
             sx={{ flexGrow: 1 }}
@@ -81,7 +109,7 @@ export default function OnboardingForm() {
           fullWidth
           label="Phone Number"
           margin="normal"
-          {...register("phoneNumber")}
+          {...formHook.register("phoneNumber")}
           error={!!errors.phoneNumber}
           helperText={errors.phoneNumber?.message}
         />
@@ -90,9 +118,20 @@ export default function OnboardingForm() {
           fullWidth
           label="Corporation Number"
           margin="normal"
-          {...register("corporationNumber")}
+          {...corporationNumberField}
+          onChange={(e) => {
+            corporationNumberField.onChange(e);
+            const val = e.target.value;
+            if (val) {
+              debouncedValidateCorpNum(val);
+            }
+          }}
           error={!!errors.corporationNumber}
-          helperText={errors.corporationNumber?.message}
+          helperText={
+            corpNumValidateApi.status === "pending"
+              ? "Checking..."
+              : errors.corporationNumber?.message
+          }
         />
         <Button
           fullWidth
