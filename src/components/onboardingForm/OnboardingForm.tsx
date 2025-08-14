@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Button, Container, TextField, Typography } from "@mui/material";
+import { Box, Button, CircularProgress, Container, TextField, Typography } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
@@ -55,9 +55,9 @@ export default function OnboardingForm() {
       debounce(async (value: string) => {
         const currentId = ++corpNumRequestIdRef.current;
         try {
-          const res = await corpNumValidateApi.execute(value);
+          const { data } = await corpNumValidateApi.execute(value);
           if (currentId === corpNumRequestIdRef.current) {
-            if (!res.valid) {
+            if (!data?.valid) {
               formHook.setError("corporationNumber", {
                 type: "manual",
                 message: "Corporation number is invalid",
@@ -133,9 +133,15 @@ export default function OnboardingForm() {
               debouncedValidateCorpNum(val);
             }
           }}
-          error={!!errors.corporationNumber}
+          error={corpNumValidateApi.isPending ? false : !!errors.corporationNumber}
           helperText={
-            corpNumValidateApi.isPending ? "Checking ..." : errors.corporationNumber?.message
+            corpNumValidateApi.isPending ? (
+              <>
+                <CircularProgress color="success" size={"1em"} /> Checking ...
+              </>
+            ) : (
+              errors.corporationNumber?.message
+            )
           }
         />
         <Button

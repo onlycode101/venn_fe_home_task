@@ -1,22 +1,19 @@
 import { CorporationNumberValidation } from "@/types/corporationNumberValidation";
+import { Result } from "@/types/result";
 
 export async function validateCorporationNumber(
   corporationNumber: string,
-): Promise<CorporationNumberValidation> {
-  // TODO: fetch
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (Math.random() > 0.5) {
-        return resolve({
-          corporationNumber,
-          valid: true,
-        });
-      }
-      return resolve({
-        corporationNumber,
-        valid: false,
-        message: "Invalid corporation number",
-      });
-    }, 1500);
-  });
+): Promise<Result<CorporationNumberValidation>> {
+  try {
+    const resp = await fetch(
+      `https://fe-hometask-api.qa.vault.tryvault.com/corporation-number/${corporationNumber}`,
+    );
+    if (!resp.ok) {
+      return { data: null, error: "Network error" };
+    }
+    const json = await resp.json();
+    return { data: json, error: null };
+  } catch (e) {
+    return { data: null, error: e };
+  }
 }
