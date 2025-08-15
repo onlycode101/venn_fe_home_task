@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { CorporationNumberValidation } from "@/types/corporationNumberValidation";
 import { ProfileDetails } from "@/types/profileDetails";
 import { Result } from "@/types/result";
@@ -16,7 +17,7 @@ export async function validateCorporationNumber(
       return { data: null, error: body ?? "Network error", status: resp.status };
     }
     return { data: body, error: null, status: resp.status };
-  } catch (e) {
+  } catch (e: any) {
     return { data: null, error: e, status: null };
   }
 }
@@ -42,7 +43,7 @@ export async function createProfile(
       return { data: null, error: body as CreateProfileError, status: resp.status };
     }
     return { data: body, error: null, status: resp.status };
-  } catch (e) {
+  } catch (e: any) {
     return { data: null, error: e, status: null };
   }
 }
@@ -51,7 +52,8 @@ export async function extractBody(resp: Response): Promise<string | object | any
   const text = await resp.text();
   try {
     return JSON.parse(text);
-  } catch (e) {
+    /* eslint-disable @typescript-eslint/no-unused-vars */
+  } catch (e: any) {
     // fallback to text
     return text;
   }

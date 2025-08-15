@@ -64,6 +64,7 @@ export default function OnboardingForm() {
             }
           }
         } catch (err) {
+          console.error("Unexpected error", err);
           if (currentId === corpNumRequestIdRef.current) {
             formHook.setError("corporationNumber", {
               type: "manual",
@@ -72,29 +73,31 @@ export default function OnboardingForm() {
           }
         }
       }, 300),
-    [corpNumValidateApi.execute, formHook.setError, formHook.clearErrors],
+    [corpNumValidateApi, formHook],
   );
 
-  const handleBESubmitErrorMessage = useCallback((message: string) => {
-    if (message.includes("phone")) {
-      formHook.setError("phone", { type: "manual", message });
-    } else if (message.includes("corporation")) {
-      formHook.setError("corporationNumber", { type: "manual", message });
-    } else if (message.includes("first name")) {
-      formHook.setError("firstName", { type: "manual", message });
-    } else if (message.includes("last name")) {
-      formHook.setError("lastName", { type: "manual", message });
-    } else {
-      setGeneralErrorMessage("Oops, something went wrong.");
-      setSubmitSuccessMessage("");
-    }
-  }, []);
+  const handleBESubmitErrorMessage = useCallback(
+    (message: string) => {
+      if (message.includes("phone")) {
+        formHook.setError("phone", { type: "manual", message });
+      } else if (message.includes("corporation")) {
+        formHook.setError("corporationNumber", { type: "manual", message });
+      } else if (message.includes("first name")) {
+        formHook.setError("firstName", { type: "manual", message });
+      } else if (message.includes("last name")) {
+        formHook.setError("lastName", { type: "manual", message });
+      } else {
+        setGeneralErrorMessage("Oops, something went wrong.");
+        setSubmitSuccessMessage("");
+      }
+    },
+    [formHook],
+  );
 
   const onSubmit = async (data: ProfileDetails, event?: BaseSyntheticEvent) => {
     event?.preventDefault();
     event?.stopPropagation();
     const result = await createApi.execute(data);
-    console.log("result", result);
     if (result.status !== 200) {
       if (result.error?.message) {
         handleBESubmitErrorMessage(result.error.message);
@@ -104,7 +107,6 @@ export default function OnboardingForm() {
       }
     } else {
       formHook.clearErrors();
-      // formHook.reset();
       setSubmitSuccessMessage("Successfully submitted form data!");
       setGeneralErrorMessage("");
     }
