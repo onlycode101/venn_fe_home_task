@@ -46,9 +46,8 @@ export default function OnboardingForm() {
     formState: { errors },
   } = formHook;
 
-  const corpNumRequestIdRef = useRef(0);
-
   const corpNumValidateApi = useApi(validateCorporationNumber);
+  const corpNumRequestIdRef = useRef(0);
 
   const debouncedValidateCorpNum = useMemo(
     () =>
@@ -83,6 +82,7 @@ export default function OnboardingForm() {
     event?.stopPropagation();
     console.log("Form submitted:", data, event);
   };
+
   const corporationNumberField = formHook.register("corporationNumber");
 
   return (
@@ -102,6 +102,7 @@ export default function OnboardingForm() {
             error={!!errors.firstName}
             helperText={errors.firstName?.message}
             sx={{ flexGrow: 1 }}
+            slotProps={{ htmlInput: { "data-testid": "firstName" } }}
           />
           <TextField
             label="Last Name"
@@ -110,6 +111,7 @@ export default function OnboardingForm() {
             error={!!errors.lastName}
             helperText={errors.lastName?.message}
             sx={{ flexGrow: 1 }}
+            slotProps={{ htmlInput: { "data-testid": "lastName" } }}
           />
         </Box>
         <TextField
@@ -119,6 +121,7 @@ export default function OnboardingForm() {
           {...formHook.register("phoneNumber")}
           error={!!errors.phoneNumber}
           helperText={errors.phoneNumber?.message}
+          slotProps={{ htmlInput: { "data-testid": "phoneNumber" } }}
         />
 
         <TextField
@@ -143,6 +146,7 @@ export default function OnboardingForm() {
               errors.corporationNumber?.message
             )
           }
+          slotProps={{ htmlInput: { "data-testid": "corporationNumber" } }}
         />
         <Button
           fullWidth
@@ -150,6 +154,7 @@ export default function OnboardingForm() {
           variant="contained"
           sx={{ mt: 2 }}
           endIcon={<ArrowForwardIcon />}
+          data-testid="submit-button"
         >
           Submit
         </Button>

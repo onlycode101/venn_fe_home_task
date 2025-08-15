@@ -1,15 +1,20 @@
-const { createDefaultPreset } = require("ts-jest");
+const nextJest = require("next/jest");
 
-const tsJestTransformCfg = createDefaultPreset().transform;
+const createJestConfig = nextJest({
+  // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
+  dir: "./src/",
+});
 
-/** @type {import("jest").Config} **/
-module.exports = {
-  testEnvironment: "node",
-  transform: {
-    ...tsJestTransformCfg,
-  },
-  moduleNameMapper: {
-    "^@/(.*)$": "<rootDir>/$1",
-  },
+// Add any custom config to be passed to Jest
+const customJestConfig = {
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
+  testEnvironment: "jsdom",
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+  },
+  collectCoverage: true,
+  coverageReporters: ["json", "html"],
 };
+
+// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
+module.exports = createJestConfig(customJestConfig);
