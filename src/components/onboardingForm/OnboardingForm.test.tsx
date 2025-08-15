@@ -1,12 +1,14 @@
-import { validateCorporationNumber } from "@/apis/onboarding";
+import { createProfile, validateCorporationNumber } from "@/apis/onboarding";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import OnboardingForm from "./OnboardingForm";
 import userEvent from "@testing-library/user-event";
 import { Result } from "@/types/result";
 import { CorporationNumberValidation } from "@/types/corporationNumberValidation";
+import { ProfileDetails } from "@/types/profileDetails";
 
 jest.mock("@/apis/onboarding", () => ({
   validateCorporationNumber: jest.fn(),
+  createProfile: jest.fn(),
 }));
 
 describe("Onboardingform", () => {
@@ -108,19 +110,19 @@ describe("Onboardingform", () => {
     });
   });
 
-  describe("phoneNumber field", () => {
-    it("shows error for phoneNumber missing", async () => {
+  describe("phone field", () => {
+    it("shows error for phone missing", async () => {
       render(<OnboardingForm />);
-      const field = screen.getByTestId("phoneNumber");
+      const field = screen.getByTestId("phone");
 
       expect(field).toHaveValue("");
       fireEvent.blur(field);
       await screen.findByText(/Phone number is required/i);
     });
 
-    it("shows error for phoneNumber invalid", async () => {
+    it("shows error for phone invalid", async () => {
       render(<OnboardingForm />);
-      const field = screen.getByTestId("phoneNumber");
+      const field = screen.getByTestId("phone");
 
       expect(field).toHaveValue("");
       await userEvent.type(field, "2345");
@@ -130,9 +132,9 @@ describe("Onboardingform", () => {
       await screen.findByText(/Phone number must start with \+1 followed by 10 digits/i);
     });
 
-    it("shows no error message for valid phoneNumber", async () => {
+    it("shows no error message for valid phone", async () => {
       render(<OnboardingForm />);
-      const field = screen.getByTestId("phoneNumber");
+      const field = screen.getByTestId("phone");
 
       expect(field).toHaveValue("");
       await userEvent.type(field, "+16470001111");
@@ -174,13 +176,14 @@ describe("Onboardingform", () => {
       await screen.findByText(/Checking \.\.\./i);
     });
 
-    it("shows message for invalid corporation number", async () => {
+    it("shows message for Invalid Corporation Number", async () => {
       render(<OnboardingForm />);
       const corpNumInput = screen.getByTestId("corporationNumber");
 
       const invalidRes: Result<CorporationNumberValidation> = {
         data: { corporationNumber: "123", valid: false, message: "test for invalid" },
         error: null,
+        status: 200,
       };
       (validateCorporationNumber as jest.Mock).mockResolvedValue(invalidRes);
       await userEvent.type(corpNumInput, "123");
@@ -190,7 +193,7 @@ describe("Onboardingform", () => {
         expect(validateCorporationNumber).toHaveBeenCalledWith("123");
       });
 
-      await screen.findByText("Corporation number is invalid");
+      await screen.findByText("Invalid Corporation Number");
     });
 
     it("shows no message for valid corporation number", async () => {
@@ -200,6 +203,7 @@ describe("Onboardingform", () => {
       const validRes: Result<CorporationNumberValidation> = {
         data: { corporationNumber: "123", valid: true },
         error: null,
+        status: 200,
       };
       (validateCorporationNumber as jest.Mock).mockResolvedValueOnce(validRes);
       await userEvent.type(corpNumInput, "123");
@@ -210,8 +214,311 @@ describe("Onboardingform", () => {
       });
 
       await waitFor(async () => {
-        expect(screen.queryByText("Corporation number is invalid")).not.toBeInTheDocument();
+        expect(screen.queryByText("Invalid Corporation Number")).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe.only("submit", () => {
+    it("submits form successfully", async () => {
+      render(<OnboardingForm />);
+      const validRes: Result<CorporationNumberValidation> = {
+        data: { corporationNumber: "1234567890", valid: true },
+        error: null,
+        status: 200,
+      };
+      (validateCorporationNumber as jest.Mock).mockResolvedValue({ data: { validRes } });
+      (createProfile as jest.Mock).mockResolvedValue({ data: "ok", error: null, status: 200 });
+      const formValues: ProfileDetails = {
+        firstName: "John",
+        lastName: "Doe",
+        phone: "+16470001111",
+        corporationNumber: "1234567890",
+      };
+
+      const firstNameInput = screen.getByTestId("firstName");
+      const lastNameInput = screen.getByTestId("lastName");
+      const phoneInput = screen.getByTestId("phone");
+      const corpNumInput = screen.getByTestId("corporationNumber");
+      const submitButton = screen.getByTestId("submit-button");
+
+      await userEvent.type(firstNameInput, formValues.firstName);
+      await userEvent.type(lastNameInput, formValues.lastName);
+      await userEvent.type(phoneInput, formValues.phone);
+      await userEvent.type(corpNumInput, formValues.corporationNumber);
+
+      expect(firstNameInput).toHaveValue(formValues.firstName);
+      expect(lastNameInput).toHaveValue(formValues.lastName);
+      expect(phoneInput).toHaveValue(formValues.phone);
+      expect(corpNumInput).toHaveValue(formValues.corporationNumber);
+
+      await userEvent.click(submitButton);
+      expect(createProfile).toHaveBeenCalledWith(formValues);
+      await screen.findByText(/Successfully submitted form data!/i);
+    });
+
+    it("submits form exceptionally due to phone", async () => {
+      render(<OnboardingForm />);
+      const validRes: Result<CorporationNumberValidation> = {
+        data: { corporationNumber: "1234567890", valid: true },
+        error: null,
+        status: 200,
+      };
+      (validateCorporationNumber as jest.Mock).mockResolvedValue({ data: { validRes } });
+      (createProfile as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: "Invalid phone number" },
+        status: 400,
+      });
+
+      const formValues: ProfileDetails = {
+        firstName: "John",
+        lastName: "Doe",
+        phone: "+16470001111",
+        corporationNumber: "1234567890",
+      };
+
+      const firstNameInput = screen.getByTestId("firstName");
+      const lastNameInput = screen.getByTestId("lastName");
+      const phoneInput = screen.getByTestId("phone");
+      const corpNumInput = screen.getByTestId("corporationNumber");
+      const submitButton = screen.getByTestId("submit-button");
+
+      await userEvent.type(firstNameInput, formValues.firstName);
+      await userEvent.type(lastNameInput, formValues.lastName);
+      await userEvent.type(phoneInput, formValues.phone);
+      await userEvent.type(corpNumInput, formValues.corporationNumber);
+
+      expect(firstNameInput).toHaveValue(formValues.firstName);
+      expect(lastNameInput).toHaveValue(formValues.lastName);
+      expect(phoneInput).toHaveValue(formValues.phone);
+      expect(corpNumInput).toHaveValue(formValues.corporationNumber);
+
+      await userEvent.click(submitButton);
+      expect(createProfile).toHaveBeenCalledWith(formValues);
+
+      await screen.findByText(/Invalid phone number/i);
+      expect(screen.queryByText(/Successfully submitted form data!/i)).not.toBeInTheDocument();
+    });
+
+    it("submits form exceptionally due to corporation number", async () => {
+      render(<OnboardingForm />);
+      const validRes: Result<CorporationNumberValidation> = {
+        data: { corporationNumber: "1234567890", valid: true },
+        error: null,
+        status: 200,
+      };
+      (validateCorporationNumber as jest.Mock).mockResolvedValue({ data: { validRes } });
+      (createProfile as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: "Invalid corporation number" },
+        status: 400,
+      });
+
+      const formValues: ProfileDetails = {
+        firstName: "John",
+        lastName: "Doe",
+        phone: "+16470001111",
+        corporationNumber: "1234567890",
+      };
+
+      const firstNameInput = screen.getByTestId("firstName");
+      const lastNameInput = screen.getByTestId("lastName");
+      const phoneInput = screen.getByTestId("phone");
+      const corpNumInput = screen.getByTestId("corporationNumber");
+      const submitButton = screen.getByTestId("submit-button");
+
+      await userEvent.type(firstNameInput, formValues.firstName);
+      await userEvent.type(lastNameInput, formValues.lastName);
+      await userEvent.type(phoneInput, formValues.phone);
+      await userEvent.type(corpNumInput, formValues.corporationNumber);
+
+      expect(firstNameInput).toHaveValue(formValues.firstName);
+      expect(lastNameInput).toHaveValue(formValues.lastName);
+      expect(phoneInput).toHaveValue(formValues.phone);
+      expect(corpNumInput).toHaveValue(formValues.corporationNumber);
+
+      await userEvent.click(submitButton);
+      expect(createProfile).toHaveBeenCalledWith(formValues);
+
+      await screen.findByText(/Invalid corporation number/i);
+      expect(screen.queryByText(/Successfully submitted form data!/i)).not.toBeInTheDocument();
+    });
+
+    it("submits form exceptionally due to first name", async () => {
+      render(<OnboardingForm />);
+      const validRes: Result<CorporationNumberValidation> = {
+        data: { corporationNumber: "1234567890", valid: true },
+        error: null,
+        status: 200,
+      };
+      (validateCorporationNumber as jest.Mock).mockResolvedValue({ data: { validRes } });
+      (createProfile as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: "Invalid first name" },
+        status: 400,
+      });
+
+      const formValues: ProfileDetails = {
+        firstName: "John",
+        lastName: "Doe",
+        phone: "+16470001111",
+        corporationNumber: "1234567890",
+      };
+
+      const firstNameInput = screen.getByTestId("firstName");
+      const lastNameInput = screen.getByTestId("lastName");
+      const phoneInput = screen.getByTestId("phone");
+      const corpNumInput = screen.getByTestId("corporationNumber");
+      const submitButton = screen.getByTestId("submit-button");
+
+      await userEvent.type(firstNameInput, formValues.firstName);
+      await userEvent.type(lastNameInput, formValues.lastName);
+      await userEvent.type(phoneInput, formValues.phone);
+      await userEvent.type(corpNumInput, formValues.corporationNumber);
+
+      expect(firstNameInput).toHaveValue(formValues.firstName);
+      expect(lastNameInput).toHaveValue(formValues.lastName);
+      expect(phoneInput).toHaveValue(formValues.phone);
+      expect(corpNumInput).toHaveValue(formValues.corporationNumber);
+
+      await userEvent.click(submitButton);
+      expect(createProfile).toHaveBeenCalledWith(formValues);
+
+      await screen.findByText(/Invalid first name/i);
+      expect(screen.queryByText(/Successfully submitted form data!/i)).not.toBeInTheDocument();
+    });
+
+    it("submits form exceptionally due to last name", async () => {
+      render(<OnboardingForm />);
+      const validRes: Result<CorporationNumberValidation> = {
+        data: { corporationNumber: "1234567890", valid: true },
+        error: null,
+        status: 200,
+      };
+      (validateCorporationNumber as jest.Mock).mockResolvedValue({ data: { validRes } });
+      (createProfile as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: "Invalid last name" },
+        status: 400,
+      });
+
+      const formValues: ProfileDetails = {
+        firstName: "John",
+        lastName: "Doe",
+        phone: "+16470001111",
+        corporationNumber: "1234567890",
+      };
+
+      const firstNameInput = screen.getByTestId("firstName");
+      const lastNameInput = screen.getByTestId("lastName");
+      const phoneInput = screen.getByTestId("phone");
+      const corpNumInput = screen.getByTestId("corporationNumber");
+      const submitButton = screen.getByTestId("submit-button");
+
+      await userEvent.type(firstNameInput, formValues.firstName);
+      await userEvent.type(lastNameInput, formValues.lastName);
+      await userEvent.type(phoneInput, formValues.phone);
+      await userEvent.type(corpNumInput, formValues.corporationNumber);
+
+      expect(firstNameInput).toHaveValue(formValues.firstName);
+      expect(lastNameInput).toHaveValue(formValues.lastName);
+      expect(phoneInput).toHaveValue(formValues.phone);
+      expect(corpNumInput).toHaveValue(formValues.corporationNumber);
+
+      await userEvent.click(submitButton);
+      expect(createProfile).toHaveBeenCalledWith(formValues);
+
+      await screen.findByText(/Invalid last name/i);
+      expect(screen.queryByText(/Successfully submitted form data!/i)).not.toBeInTheDocument();
+    });
+
+    it("submits form exceptionally due to unknown error", async () => {
+      render(<OnboardingForm />);
+      const validRes: Result<CorporationNumberValidation> = {
+        data: { corporationNumber: "1234567890", valid: true },
+        error: null,
+        status: 200,
+      };
+      (validateCorporationNumber as jest.Mock).mockResolvedValue({ data: { validRes } });
+      (createProfile as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: "Invalid data" },
+        status: 400,
+      });
+
+      const formValues: ProfileDetails = {
+        firstName: "John",
+        lastName: "Doe",
+        phone: "+16470001111",
+        corporationNumber: "1234567890",
+      };
+
+      const firstNameInput = screen.getByTestId("firstName");
+      const lastNameInput = screen.getByTestId("lastName");
+      const phoneInput = screen.getByTestId("phone");
+      const corpNumInput = screen.getByTestId("corporationNumber");
+      const submitButton = screen.getByTestId("submit-button");
+
+      await userEvent.type(firstNameInput, formValues.firstName);
+      await userEvent.type(lastNameInput, formValues.lastName);
+      await userEvent.type(phoneInput, formValues.phone);
+      await userEvent.type(corpNumInput, formValues.corporationNumber);
+
+      expect(firstNameInput).toHaveValue(formValues.firstName);
+      expect(lastNameInput).toHaveValue(formValues.lastName);
+      expect(phoneInput).toHaveValue(formValues.phone);
+      expect(corpNumInput).toHaveValue(formValues.corporationNumber);
+
+      await userEvent.click(submitButton);
+      expect(createProfile).toHaveBeenCalledWith(formValues);
+
+      await screen.findByText(/Oops, something went wrong/i);
+      expect(screen.queryByText(/Successfully submitted form data!/i)).not.toBeInTheDocument();
+    });
+
+    it("submits form exceptionally due to unspecified error", async () => {
+      render(<OnboardingForm />);
+      const validRes: Result<CorporationNumberValidation> = {
+        data: { corporationNumber: "1234567890", valid: true },
+        error: null,
+        status: 200,
+      };
+      (validateCorporationNumber as jest.Mock).mockResolvedValue({ data: { validRes } });
+      (createProfile as jest.Mock).mockResolvedValue({
+        data: null,
+        error: null,
+        status: 400,
+      });
+
+      const formValues: ProfileDetails = {
+        firstName: "John",
+        lastName: "Doe",
+        phone: "+16470001111",
+        corporationNumber: "1234567890",
+      };
+
+      const firstNameInput = screen.getByTestId("firstName");
+      const lastNameInput = screen.getByTestId("lastName");
+      const phoneInput = screen.getByTestId("phone");
+      const corpNumInput = screen.getByTestId("corporationNumber");
+      const submitButton = screen.getByTestId("submit-button");
+
+      await userEvent.type(firstNameInput, formValues.firstName);
+      await userEvent.type(lastNameInput, formValues.lastName);
+      await userEvent.type(phoneInput, formValues.phone);
+      await userEvent.type(corpNumInput, formValues.corporationNumber);
+
+      expect(firstNameInput).toHaveValue(formValues.firstName);
+      expect(lastNameInput).toHaveValue(formValues.lastName);
+      expect(phoneInput).toHaveValue(formValues.phone);
+      expect(corpNumInput).toHaveValue(formValues.corporationNumber);
+
+      await userEvent.click(submitButton);
+      expect(createProfile).toHaveBeenCalledWith(formValues);
+
+      await screen.findByText(/Oops, something went wrong/i);
+      expect(screen.queryByText(/Successfully submitted form data!/i)).not.toBeInTheDocument();
     });
   });
 });

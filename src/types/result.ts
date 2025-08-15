@@ -1,1 +1,3 @@
-export type Result<T> = { data: T; error: null } | { data: null; error: unknown };
+export type Result<T, E = unknown> =
+  | { data: T; error: null; status: number | null }
+  | { data: null; error: E; status: number | null };
